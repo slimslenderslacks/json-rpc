@@ -1,0 +1,7 @@
+/.clj-kondo/
+/.cpcache/
+/.direnv/
+/.envrc
+/.lsp/
+/result
+/docker-lsp.out

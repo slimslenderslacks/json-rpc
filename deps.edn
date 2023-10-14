@@ -1,0 +1,40 @@
+{:deps
+ {org.clojure/clojure {:mvn/version "1.11.1"}
+  org.clojure/tools.cli {:mvn/version "1.0.206"}
+  org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}
+  org.clj-commons/hickory {:mvn/version "0.7.3"}
+  babashka/process {:mvn/version "0.2.9"}
+  babashka/babashka.pods {:mvn/version "0.1.0"}
+
+   ;; for the code in src/clojure_lsp
+  borkdude/dynaload {:mvn/version "0.3.5"}
+  funcool/promesa {:mvn/version "9.0.470"}
+  com.taoensso/timbre {:mvn/version "5.2.1"}
+  com.github.clojure-lsp/clojure-lsp {:mvn/version "2023.08.06-00.28.06"}
+  io.github.atomisthq/datalog-schema #_{:local/root "/Users/slim/atmhq/datalog_schema"}
+  {:git/url "https://github.com/atomisthq/datalog-schema.git"
+   :git/sha "bc5ecf42db7bbdb058ac36f9f386fb4a89db6c36"}
+
+  clj-commons/clj-yaml {:mvn/version "1.0.27"}
+
+   ;io.github.atomisthq/datoms
+   ;{:local/root "/Users/slim/atmhq/datoms"}
+  #_{:mvn/version "0.7.7"}
+  com.cognitect/transit-clj {:mvn/version "1.0.329"}
+  com.rpl/specter {:mvn/version "1.1.4"}
+  org.flatland/ordered {:mvn/version "1.15.10"}
+  io.replikativ/hasch {:mvn/version "0.3.7"}
+  ;; TODO move this to another profile when we build non-repl lsp servers
+  cider/cider-nrepl {:mvn/version "0.25.3-SNAPSHOT"}}
+ :aliases
+ {:start {:main-opts ["--main" "docker.lsp.server"]}
+  :jvm-base {:jvm-opts ["--add-opens=java.base/java.nio=ALL-UNNAMED"
+                        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}
+  :build {:ns-default build
+          :deps {io.github.clojure/tools.build {:git/tag "v0.9.5" :git/sha "24f2894"}}}
+  :native {:jvm-opts ["-Xmx2g"
+                      "-server"
+                      "-Dborkdude.dynaload.aot=true"
+                      "-Dclojure.compiler.direct-linking=true"
+                      "-Dclojure.spec.skip-macros=true"]
+           :extra-deps {com.github.clj-easy/graal-build-time {:mvn/version "0.1.4"}}}}}
