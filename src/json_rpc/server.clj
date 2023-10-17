@@ -38,7 +38,7 @@
 
 (defmethod lsp.server/receive-request "shutdown" [_ {:keys [db*]} _params]
   (logger/info "Shutting down...")
-  (reset! db* db/initial-db) ;; resets db for dev
+  (swap! db* assoc :running false) ;; resets db for dev
   nil)
 
 (defmethod lsp.server/receive-notification "exit" [_ {:keys [server]} _params]
@@ -47,11 +47,14 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defmethod lsp.server/receive-request "prompt" [_ {:keys [producer] :as _components} params]
-  (logger/info "params " params)
-  (producer/publish-diagnostic producer "streaming content")
-  (producer/publish-diagnostic producer "more content")
-  {:running "now"})
+(defmethod lsp.server/receive-request "prompt" [_method {:keys [producer db* id] :as _components} params]
+  (logger/info (format "request id %s" id))
+  (logger/info (format "params %s" params))
+  (if (:running @db*)
+    (do
+      (producer/publish-diagnostic producer {:id id :content "content"})
+      {:running "now"})
+    (throw (ex-info "shutting down" {}))))
 
 (defn ^:private monitor-server-logs [log-ch]
   ;; NOTE: if this were moved to `initialize`, after timbre has been configured,
@@ -98,7 +101,7 @@
   (publish-diagnostic [_this diagnostic]
     (logger/info "publish-diagnostic " diagnostic)
     (lsp.server/discarding-stdout
-      (->> diagnostic (lsp.server/send-notification server "$/prompt")))))
+     (->> diagnostic (lsp.server/send-notification server "$/prompt")))))
 
 (defn run-server! [{:keys [trace-level] :as opts}]
   (lsp.server/discarding-stdout
@@ -180,7 +183,7 @@
                "Invalid --settings EDN"]
     :assoc-fn #(assoc %1 %2 (edn/read-string %3))]
    [nil "--log-path PATH" "Path to use as the log path for docker-lsp.out, debug purposes only."
-    :id :log-path] ])
+    :id :log-path]])
 
 (comment
   (parse-opts ["--pod-exe-path" "/Users/slim"] (cli-options)))

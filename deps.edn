@@ -4,7 +4,7 @@
   babashka/process {:mvn/version "0.2.9"}
 
   com.taoensso/timbre {:mvn/version "5.2.1"}
-  com.github.clojure-lsp/clojure-lsp {:mvn/version "2023.08.06-00.28.06"}
+  io.github.slimslenderslacks/lsp4clj {:git/sha "88985cb3941f07eefa203906730ca128ad4269a5"}
   funcool/promesa {:mvn/version "9.0.470"}
 
   ;; TODO move this to another profile when we build non-repl lsp servers
