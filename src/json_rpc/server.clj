@@ -9,6 +9,7 @@
    [clojure.string :as string]
    [clojure.tools.cli :refer [parse-opts]]
    [docker.json :as json]
+   [babashka.process :as p]
    [docker.lsp.db :as db]
    [json-rpc.producer :as producer]
    [lsp4clj.io-server :refer [stdio-server]]
@@ -47,13 +48,28 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defmethod lsp.server/receive-request "prompt" [_method {:keys [producer db* id] :as _components} params]
+(defn run-python-app [{:keys [producer id]} params]
+  (async/thread
+    (let [p (p/process {:dir "/app"} (format "%s %s" "python app.py" (json/->str params)))]
+      (with-open [rdr (io/reader (:out p))]
+        (binding [*in* rdr]
+          (loop []
+            (when-let [line (read-line)]
+              (logger/info line)
+              (when line
+                (try
+                  (producer/publish-diagnostic producer {:id id :content (json/->obj line)})
+                  (catch Throwable _t (producer/publish-diagnostic producer {:id id :error line})))
+                (recur))))))
+      @p)))
+
+(defmethod lsp.server/receive-request "prompt" [_method {:keys [db* id] :as components} params]
   (logger/info (format "request id %s" id))
   (logger/info (format "params %s" params))
   (if (:running @db*)
     (do
-      (producer/publish-diagnostic producer {:id id :content "content"})
-      {:running "now"})
+      (run-python-app components params)
+      {:accepted {:id id}})
     (throw (ex-info "shutting down" {}))))
 
 (defn ^:private monitor-server-logs [log-ch]
