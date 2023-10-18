@@ -58,10 +58,10 @@
               (logger/info line)
               (when line
                 (try
-                  (producer/publish-prompt producer {:extension/id extension-id :content (json/->obj line)})
+                  (producer/publish-prompt producer {"extension/id" extension-id :content (json/->obj line)})
                   (catch Throwable _t (producer/publish-prompt producer {:extension/id extension-id :error line})))
                 (recur))))))
-      (producer/publish-exit producer (merge {:extension/id extension-id} (select-keys @p [:exit]))))))
+      (producer/publish-exit producer (merge {"extension/id" extension-id} (select-keys @p [:exit]))))))
 
 (defmethod lsp.server/receive-request "prompt" [_method {:keys [db* id] :as components} params]
   (logger/info (format "request id %s" id))
