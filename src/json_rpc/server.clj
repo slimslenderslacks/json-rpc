@@ -70,7 +70,7 @@
     (if-let [extension-id (:extension/id params)]
       (do
         (run-python-app components params)
-        {:accepted {:extension/id extension-id
+        {:accepted {"extension/id" extension-id
                     :id id}})
       (throw (ex-info "no extension/id in request" {})))
     (throw (ex-info "shutting down" {}))))
