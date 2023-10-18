@@ -48,7 +48,7 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defn run-python-app [{:keys [producer id]} params]
+(defn run-python-app [{:keys [producer]} {extension-id :extension/id :as params}]
   (async/thread
     (let [p (p/process {:dir "/app"} (format "%s %s" "python app.py" (json/->str params)))]
       (with-open [rdr (io/reader (:out p))]
@@ -58,18 +58,21 @@
               (logger/info line)
               (when line
                 (try
-                  (producer/publish-diagnostic producer {:id id :content (json/->obj line)})
-                  (catch Throwable _t (producer/publish-diagnostic producer {:id id :error line})))
+                  (producer/publish-prompt producer {:extension/id extension-id :content (json/->obj line)})
+                  (catch Throwable _t (producer/publish-prompt producer {:extension/id extension-id :error line})))
                 (recur))))))
-      @p)))
+      (producer/publish-exit producer (merge {:extension/id extension-id} (select-keys @p [:exit]))))))
 
 (defmethod lsp.server/receive-request "prompt" [_method {:keys [db* id] :as components} params]
   (logger/info (format "request id %s" id))
   (logger/info (format "params %s" params))
   (if (:running @db*)
-    (do
-      (run-python-app components params)
-      {:accepted {:id id}})
+    (if-let [extension-id (:extension/id params)]
+      (do
+        (run-python-app components params)
+        {:accepted {:extension/id extension-id
+                    :id id}})
+      (throw (ex-info "no extension/id in request" {})))
     (throw (ex-info "shutting down" {}))))
 
 (defn ^:private monitor-server-logs [log-ch]
@@ -114,10 +117,14 @@
            [server db*]
   producer/IProducer
 
-  (publish-diagnostic [_this diagnostic]
-    (logger/info "publish-diagnostic " diagnostic)
+  (publish-prompt [_this p]
+    (logger/info "publish-prompt " p)
     (lsp.server/discarding-stdout
-     (->> diagnostic (lsp.server/send-notification server "$/prompt")))))
+     (->> p (lsp.server/send-notification server "$/prompt"))))
+  (publish-exit [_this p]
+    (logger/info "publish-exit " p)
+    (lsp.server/discarding-stdout
+     (->> p (lsp.server/send-notification server "$/exit")))))
 
 (defn run-server! [{:keys [trace-level] :as opts}]
   (lsp.server/discarding-stdout

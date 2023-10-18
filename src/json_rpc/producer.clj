@@ -1,4 +1,5 @@
 (ns json-rpc.producer)
 
 (defprotocol IProducer
-  (publish-diagnostic [this diagnostic]))
+  (publish-prompt [this params])
+  (publish-exit [this params]))
