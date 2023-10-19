@@ -1,6 +1,8 @@
 (ns json-rpc.server
   (:refer-clojure :exclude [run!])
   (:require
+   [camel-snake-kebab.core :as csk]
+   [camel-snake-kebab.extras :as cske]
    [babashka.fs :as fs]
    [clojure-lsp.logger :as logger]
    [clojure.core.async :as async]
@@ -48,9 +50,18 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defn run-python-app [{:keys [producer]} {extension-id :extension/id :as params}]
+(defn ^:private kw->camelCaseString
+  "Convert keywords to camelCase strings, but preserve capitalization of things
+  that are already strings."
+  [k]
+  (cond-> k (keyword? k) csk/->camelCaseString))
+
+(defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled? :keys [producer]} {extension-id :extension/id :as params}]
   (async/thread
-    (let [p (p/process {:dir "/app"} (format "%s %s" "python app.py" (json/->str params)))]
+    (let [python-arg (json/->str (cske/transform-keys kw->camelCaseString (dissoc params :extension/id)))
+          p (p/process {:dir "/app"}
+                       ["python" "app.py" python-arg])]
+      (spit "argument.json" python-arg)
       (with-open [rdr (io/reader (:out p))]
         (binding [*in* rdr]
           (loop []
