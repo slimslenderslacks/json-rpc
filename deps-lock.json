@@ -12,9 +12,9 @@
     {
       "lib": "io.github.slimslenderslacks/lsp4clj",
       "url": "https://github.com/slimslenderslacks/lsp4clj.git",
-      "rev": "88985cb3941f07eefa203906730ca128ad4269a5",
+      "rev": "365bab1017c8a08308425d4042909b39d1d321fe",
       "git-dir": "https/github.com/slimslenderslacks/lsp4clj",
-      "hash": "sha256-4ZPkB9w1nBBngbGmKEjZhIOZAi1JZur0xcFps8tSsjc="
+      "hash": "sha256-gar3MWukicKP/s72ExgrAT996sDcQwllaK7HsrsEZxM="
     }
   ],
   "mvn-deps": [
@@ -29,24 +29,24 @@
       "hash": "sha256-JugjMBV9a4RLZ6gGSUXiBlgedyl3GD4+Mf7GBYqppZs="
     },
     {
-      "mvn-path": "babashka/fs/0.1.6/fs-0.1.6.jar",
+      "mvn-path": "babashka/fs/0.2.12/fs-0.2.12.jar",
       "mvn-repo": "https://repo.clojars.org/",
-      "hash": "sha256-10dINOFvu1Kk2bexqmBSyk0BucZx0f9BWYIxwaF1Vr4="
+      "hash": "sha256-54H6KPHJovUeLj9SI6YGVtwDmZcsdajfdCuG6u8nfkc="
     },
     {
-      "mvn-path": "babashka/fs/0.1.6/fs-0.1.6.pom",
+      "mvn-path": "babashka/fs/0.2.12/fs-0.2.12.pom",
       "mvn-repo": "https://repo.clojars.org/",
-      "hash": "sha256-DGkccdKdMtYY8CpQnoxw3608xKVWiOwsZl7Yao5/Jp8="
+      "hash": "sha256-/wCsLdezFw8C9qPsk96sBUkrWgo48uWOGBgOrKrx2yU="
     },
     {
-      "mvn-path": "babashka/process/0.2.9/process-0.2.9.jar",
+      "mvn-path": "babashka/process/0.5.21/process-0.5.21.jar",
       "mvn-repo": "https://repo.clojars.org/",
-      "hash": "sha256-zaiM0I2csPDNin2hxBZbzSqMsIF5ujzjH/XuwZDXlTo="
+      "hash": "sha256-JxlgyYHRvr5k7FVC63dwzwvmOLj22rI3fX77unYRLi0="
     },
     {
-      "mvn-path": "babashka/process/0.2.9/process-0.2.9.pom",
+      "mvn-path": "babashka/process/0.5.21/process-0.5.21.pom",
       "mvn-repo": "https://repo.clojars.org/",
-      "hash": "sha256-9UMQjdALb/zYQZjB/W1noDWkjul24teh1KK8Yl5HiJE="
+      "hash": "sha256-FDlMFp8+tAMf7TA4bQNSY+tg4guWUjbfc/c7A4xsqmQ="
     },
     {
       "mvn-path": "camel-snake-kebab/camel-snake-kebab/0.4.3/camel-snake-kebab-0.4.3.jar",

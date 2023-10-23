@@ -1,9 +1,11 @@
 (ns json-rpc.server
   (:refer-clojure :exclude [run!])
   (:require
+   [babashka.fs :as fs]
+   [babashka.process :as p]
    [camel-snake-kebab.core :as csk]
    [camel-snake-kebab.extras :as cske]
-   [babashka.fs :as fs]
+   [cheshire.core :as cheshire]
    [clojure-lsp.logger :as logger]
    [clojure.core.async :as async]
    [clojure.edn :as edn]
@@ -11,13 +13,14 @@
    [clojure.string :as string]
    [clojure.tools.cli :refer [parse-opts]]
    [docker.json :as json]
-   [babashka.process :as p]
    [docker.lsp.db :as db]
    [json-rpc.producer :as producer]
    [lsp4clj.io-server :refer [stdio-server]]
    [lsp4clj.server :as lsp.server]
    [taoensso.timbre :as timbre]
-   [taoensso.timbre.appenders.core :as appenders])
+   [taoensso.timbre.appenders.core :as appenders]
+   [cheshire.core :as core]
+   [clojure.core :as c])
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -50,17 +53,23 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defn ^:private kw->camelCaseString
-  "Convert keywords to camelCase strings, but preserve capitalization of things
+#_(defn ^:private kw->camelCaseString
+    "Convert keywords to camelCase strings, but preserve capitalization of things
   that are already strings."
-  [k]
-  (cond-> k (keyword? k) csk/->camelCaseString))
+    [k]
+    (cond
+      (and (keyword? k) (namespace k)) (format "%s/%s" (namespace k) (name k))
+      (and (keyword? k) (= :docker-ps-result k)) "dockerPSResult"
+      (keyword? k) (csk/->camelCaseString k)
+      :else k))
 
-(defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled? :keys [producer]} {extension-id :extension/id :as params}]
+(defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled? :keys [producer]}
+                      {:as params}]
   (async/thread
-    (let [python-arg (json/->str (cske/transform-keys kw->camelCaseString (dissoc params :extension/id)))
+    (let [extension-id (get params "extension/id")
+          python-arg (json/->str (dissoc params "extension/id"))
           p (p/process {:dir "/app"}
-                       ["python" "app.py" python-arg])]
+                       "python" "app.py" python-arg)]
       (spit "argument.json" python-arg)
       (with-open [rdr (io/reader (:out p))]
         (binding [*in* rdr]
@@ -69,8 +78,8 @@
               (logger/info line)
               (when line
                 (try
-                  (producer/publish-prompt producer {"extension/id" extension-id :content (json/->obj line)})
-                  (catch Throwable _t (producer/publish-prompt producer {:extension/id extension-id :error line})))
+                  (producer/publish-prompt producer {"extension/id" extension-id "content" (cheshire/parse-string line)})
+                  (catch Throwable _t (producer/publish-prompt producer {"extension/id" extension-id "error" line})))
                 (recur))))))
       (producer/publish-exit producer (merge {"extension/id" extension-id} (select-keys @p [:exit]))))))
 
@@ -78,11 +87,25 @@
   (logger/info (format "request id %s" id))
   (logger/info (format "params %s" params))
   (if (:running @db*)
-    (if-let [extension-id (:extension/id params)]
+    (if-let [extension-id (get params "extension/id")]
       (do
         (run-python-app components params)
         {:accepted {"extension/id" extension-id
                     :id id}})
+      (throw (ex-info "no extension/id in request" {})))
+    (throw (ex-info "shutting down" {}))))
+
+(defmethod lsp.server/receive-request "questions" [_method {:keys [db* id] :as _components} params]
+  (logger/info (format "request id %s" id))
+  (logger/info (format "params %s" params))
+  (if (:running @db*)
+    (if-let [extension-id (get params "extension/id")]
+      (let [p (p/process
+               {:dir "/app"
+                :out :string}
+               "python" "app.py" "questions")]
+        {:content (cheshire/parse-string (:out @p))
+         "extension/id" extension-id})
       (throw (ex-info "no extension/id in request" {})))
     (throw (ex-info "shutting down" {}))))
 
@@ -149,7 +172,10 @@
                {:pat pat}))
          db* (atom db)
          log-ch (async/chan (async/sliding-buffer 20))
-         server (stdio-server {:log-ch log-ch
+         server (stdio-server {:keyword-function identity
+                               :in System/in
+                               :out System/out
+                               :log-ch log-ch
                                :trace-ch log-ch
                                :trace-level trace-level})
          producer (ClojureLspProducer. server db*)
