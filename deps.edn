@@ -4,7 +4,7 @@
   babashka/process {:mvn/version "0.5.21"}
 
   com.taoensso/timbre {:mvn/version "5.2.1"}
-  io.github.slimslenderslacks/lsp4clj {#_#_:local/root "/Users/slim/slimslenderslacks/lsp4clj" :git/sha "365bab1017c8a08308425d4042909b39d1d321fe"}
+  io.github.slimslenderslacks/lsp4clj {:git/sha "995abcdbfebfa7ef6550625fe1ef3ca2c7683292"}
   funcool/promesa {:mvn/version "9.0.470"}
 
   ;; TODO move this to another profile when we build non-repl lsp servers
