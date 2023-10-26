@@ -3,8 +3,6 @@
   (:require
    [babashka.fs :as fs]
    [babashka.process :as p]
-   [camel-snake-kebab.core :as csk]
-   [camel-snake-kebab.extras :as cske]
    [cheshire.core :as cheshire]
    [clojure-lsp.logger :as logger]
    [clojure.core.async :as async]
@@ -19,7 +17,6 @@
    [lsp4clj.server :as lsp.server]
    [taoensso.timbre :as timbre]
    [taoensso.timbre.appenders.core :as appenders]
-   [cheshire.core :as core]
    [clojure.core :as c])
   (:gen-class))
 
@@ -52,16 +49,6 @@
 
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
-
-#_(defn ^:private kw->camelCaseString
-    "Convert keywords to camelCase strings, but preserve capitalization of things
-  that are already strings."
-    [k]
-    (cond
-      (and (keyword? k) (namespace k)) (format "%s/%s" (namespace k) (name k))
-      (and (keyword? k) (= :docker-ps-result k)) "dockerPSResult"
-      (keyword? k) (csk/->camelCaseString k)
-      :else k))
 
 (defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled? :keys [producer]}
                       {:as params}]
