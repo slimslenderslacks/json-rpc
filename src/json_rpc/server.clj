@@ -50,35 +50,38 @@
 (defmethod lsp.server/receive-notification "$/setTrace" [_ {:keys [server]} {:keys [value]}]
   (lsp.server/set-trace-level server value))
 
-(defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled? :keys [producer]}
+(defn run-python-app [{_req-cancelled* :lsp4clj.server/req-cancelled?
+                       :keys [producer db*]}
                       {:as params}]
   (async/thread
     (let [extension-id (get params "extension/id")
-          python-arg (json/->str (dissoc params "extension/id"))
-          p (p/process {:dir "/app"}
-                       "python" "app.py" python-arg)]
-      (spit "argument.json" python-arg)
-      (with-open [rdr (io/reader (:out p))]
-        (binding [*in* rdr]
-          (loop []
-            (when-let [line (read-line)]
-              (logger/info line)
-              (when line
-                (try
-                  (producer/publish-prompt producer {"extension/id" extension-id "content" (cheshire/parse-string line)})
-                  (catch Throwable _t (producer/publish-prompt producer {"extension/id" extension-id "error" line})))
-                (recur))))))
-      (producer/publish-exit producer (merge {"extension/id" extension-id} (select-keys @p [:exit]))))))
+          f (format "/app/%s.json" extension-id)
+          python-arg (json/->str (dissoc params "extension/id"))]
+      (spit f python-arg)
+      (let [p (p/process {:dir "/app"}
+                         "python" "app.py" (if (true? (:use-file @db*)) f python-arg))]
+        (with-open [rdr (io/reader (:out p))]
+          (binding [*in* rdr]
+            (loop []
+              (when-let [line (read-line)]
+                (logger/info line)
+                (when line
+                  (try
+                    (producer/publish-prompt producer {"extension/id" extension-id "content" (cheshire/parse-string line)})
+                    (catch Throwable _t (producer/publish-prompt producer {"extension/id" extension-id "error" line})))
+                  (recur))))))
+        (producer/publish-exit producer (merge {"extension/id" extension-id} (select-keys @p [:exit])))))))
 
 (defmethod lsp.server/receive-request "prompt" [_method {:keys [db* id] :as components} params]
   (logger/info (format "request id %s" id))
   (logger/info (format "params %s" params))
   (if (:running @db*)
     (if-let [extension-id (get params "extension/id")]
-      (do
+      (try
         (run-python-app components params)
         {:accepted {"extension/id" extension-id
-                    :id id}})
+                    :id id}}
+        (catch Throwable t (throw (ex-info "unable to run pythong app" (ex-data t)))))
       (throw (ex-info "no extension/id in request" {})))
     (throw (ex-info "shutting down" {}))))
 
@@ -154,7 +157,7 @@
          db (merge
              db/initial-db
              {:log-path log-path}
-             (select-keys opts [:pod-exe-path :user :workspace :extension-path])
+             (select-keys opts [:pod-exe-path :user :workspace :extension-path :use-file])
              (when-let [pat (System/getenv "DOCKER_PAT")]
                {:pat pat}))
          db* (atom db)
@@ -230,7 +233,9 @@
                "Invalid --settings EDN"]
     :assoc-fn #(assoc %1 %2 (edn/read-string %3))]
    [nil "--log-path PATH" "Path to use as the log path for docker-lsp.out, debug purposes only."
-    :id :log-path]])
+    :id :log-path]
+   [nil "--use-file" "do not pass prompts as exec args - use file instead"
+    :id :use-file]])
 
 (comment
   (parse-opts ["--pod-exe-path" "/Users/slim"] (cli-options)))
