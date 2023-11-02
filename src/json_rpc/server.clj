@@ -58,8 +58,15 @@
           f (format "/app/%s.json" extension-id)
           python-arg (json/->str (dissoc params "extension/id"))]
       (spit f python-arg)
-      (let [p (p/process {:dir "/app"}
-                         "python" "app.py" (if (true? (:use-file @db*)) f python-arg))]
+      (let [args (-> ["python" "app.py"]
+                     (concat (if (true? (:use-file @db*))
+                               ["--use-file" f]
+                               [python-arg])))
+            p (apply
+               p/process
+               {:dir "/app"}
+               args)]
+        (logger/info (format "use args %s" (into [] args)))
         (with-open [rdr (io/reader (:out p))]
           (binding [*in* rdr]
             (loop []
@@ -73,11 +80,10 @@
         (producer/publish-exit producer (merge {"extension/id" extension-id} (select-keys @p [:exit])))))))
 
 (defmethod lsp.server/receive-request "prompt" [_method {:keys [db* id] :as components} params]
-  (logger/info (format "request id %s" id))
-  (logger/info (format "params %s" params))
   (if (:running @db*)
     (if-let [extension-id (get params "extension/id")]
       (try
+        (logger/info (format "request %s %s" id extension-id))
         (run-python-app components params)
         {:accepted {"extension/id" extension-id
                     :id id}}
@@ -86,8 +92,8 @@
     (throw (ex-info "shutting down" {}))))
 
 (defmethod lsp.server/receive-request "questions" [_method {:keys [db* id] :as _components} params]
-  (logger/info (format "request id %s" id))
-  (logger/info (format "params %s" params))
+  (logger/info (format "questions request id %s" id))
+  (logger/info (format "questions params %s" params))
   (if (:running @db*)
     (if-let [extension-id (get params "extension/id")]
       (let [p (p/process
