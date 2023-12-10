@@ -4,6 +4,7 @@
    [babashka.fs :as fs]
    [babashka.process :as p]
    [cheshire.core :as cheshire]
+   [lsp4clj.coercer :as coercer]
    [clojure-lsp.logger :as logger]
    [clojure.core.async :as async]
    [clojure.edn :as edn]
@@ -22,6 +23,18 @@
 
 (set! *warn-on-reflection* true)
 
+(defmacro conform-or-log
+  "Provides log function for conformation, while preserving line numbers."
+  [spec value]
+  (let [fmeta (assoc (meta &form)
+                     :file *file*
+                     :ns-str (str *ns*))]
+    `(coercer/conform-or-log
+      (fn [& args#]
+        (log! :error args# ~fmeta))
+      ~spec
+      ~value)))
+
 (defn log-wrapper-fn
   [level & args]
   ;; NOTE: this does not do compile-time elision because the level isn't a constant.
@@ -38,6 +51,21 @@
   (lsp.server/shutdown server) ;; blocks, waiting up to 10s for previously received messages to be processed
   (shutdown-agents)
   (System/exit 0))
+
+(defmethod lsp.server/receive-request "initialize" [_ {:keys [db* server]} params]
+  (logger/info "Initializing...")
+  (swap! db* merge
+         {:project-root-uri (:root-uri params)
+          :client-capabilities (:capabilities params)})
+  (when-let [trace-level (:trace params)]
+    (lsp.server/set-trace-level server trace-level))
+  {:capabilities
+   (conform-or-log
+    ::coercer/server-capabilities
+    {})})
+
+(defmethod lsp.server/receive-notification "initialized" [_ {:as _components} _params]
+  (logger/info "Initialized!"))
 
 (defmethod lsp.server/receive-request "shutdown" [_ {:keys [db*]} _params]
   (logger/info "Shutting down...")
